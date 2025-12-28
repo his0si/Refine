@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: refine-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: refine_user
+      POSTGRES_PASSWORD: refine_password
+      POSTGRES_DB: refine_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # 영구 볼륨 - 도커를 끄거나 캐시를 날려도 데이터 유지
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U refine_user -d refine_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: refine-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://refine_user:refine_password@postgres:5432/refine_db
+      PORT: 3000
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+# 영구 볼륨 정의 - 이 볼륨은 docker-compose down을 해도 유지됨
+# docker volume rm refine_postgres_data 명령어로만 삭제 가능
+volumes:
+  postgres_data:
+    driver: local
