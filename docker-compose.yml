@@ -20,6 +20,21 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: refine-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      # Ollama 모델 데이터 영구 저장
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   backend:
     build:
       context: ./backend
@@ -30,12 +45,15 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://refine_user:refine_password@postgres:5432/refine_db
       PORT: 3000
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OLLAMA_URL: http://ollama:11434
+      # OpenAI API 키는 이제 사용자가 앱에서 입력합니다 (서버에서 사용 안 함)
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
+      ollama:
+        condition: service_started
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -44,4 +62,6 @@ services:
 # docker volume rm refine_postgres_data 명령어로만 삭제 가능
 volumes:
   postgres_data:
+    driver: local
+  ollama_data:
     driver: local

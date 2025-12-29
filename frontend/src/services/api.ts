@@ -72,9 +72,16 @@ export async function getCurrentUser(): Promise<AuthResponse> {
 /**
  * 텍스트 다듬기 요청
  */
-export async function refineText(request: RefineRequest): Promise<RefineResponse> {
+export async function refineText(
+  request: RefineRequest,
+  openaiApiKey?: string | null
+): Promise<RefineResponse> {
   try {
-    const response = await api.post<RefineResponse>('/refine', request);
+    const payload = {
+      ...request,
+      ...(openaiApiKey && { openaiApiKey }), // OpenAI API 키가 있으면 포함
+    };
+    const response = await api.post<RefineResponse>('/refine', payload);
     return response.data;
   } catch (error) {
     console.error('텍스트 다듬기 실패:', error);

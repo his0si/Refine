@@ -23,6 +23,7 @@ router.post(
   [
     body('text').isString().notEmpty().withMessage('텍스트는 필수입니다'),
     body('context').optional().isString(),
+    body('openaiApiKey').optional().isString(), // 사용자가 제공한 OpenAI API 키 (선택)
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -31,13 +32,14 @@ router.post(
     }
 
     try {
-      const { text, context } = req.body;
+      const { text, context, openaiApiKey } = req.body;
       const userId = req.userId; // 로그인한 경우 userId 존재
 
-      // AI로 텍스트 다듬기
+      // AI로 텍스트 다듬기 (사용자 API 키 전달)
       const result = await refineText({
         originalText: text,
         context,
+        userApiKey: openaiApiKey, // 사용자가 OpenAI API 키를 제공했으면 OpenAI 사용, 아니면 Ollama 사용
       });
 
       // 데이터베이스에 저장
@@ -57,13 +59,14 @@ router.post(
           suggestions: result.suggestions,
           context: savedRefinement.context,
           createdAt: savedRefinement.created_at,
+          provider: result.provider, // 어떤 AI를 사용했는지 클라이언트에 전달
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('텍스트 다듬기 실패:', error);
       res.status(500).json({
         success: false,
-        message: '텍스트 다듬기에 실패했습니다.',
+        message: error.message || '텍스트 다듬기에 실패했습니다.',
       });
     }
   }

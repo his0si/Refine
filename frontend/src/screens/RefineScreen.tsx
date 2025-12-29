@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { refineText } from '../services/api';
+import { getStoredOpenAIKey } from './ProfileScreen';
 import type { Refinement } from '../types';
 
 // Android에서 LayoutAnimation 활성화
@@ -38,23 +39,33 @@ export default function RefineScreen() {
       setLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const response = await refineText({
-        text: inputText.trim(),
-        context: context.trim() || undefined,
-      });
+      // 저장된 OpenAI API 키 가져오기
+      const openaiApiKey = await getStoredOpenAIKey();
+
+      const response = await refineText(
+        {
+          text: inputText.trim(),
+          context: context.trim() || undefined,
+        },
+        openaiApiKey // API 키가 있으면 OpenAI 사용, 없으면 Ollama 사용
+      );
 
       if (response.success && response.data) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setResult(response.data);
         setSelectedSuggestion(0);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // 어떤 AI를 사용했는지 표시 (선택사항)
+        console.log(`AI Provider: ${response.data.provider || 'unknown'}`);
       } else {
         Alert.alert('오류', response.message || '텍스트 다듬기에 실패했습니다.');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Refine error:', error);
-      Alert.alert('오류', '서버와 연결할 수 없습니다. 나중에 다시 시도해주세요.');
+      const errorMessage = error.response?.data?.message || error.message || '서버와 연결할 수 없습니다.';
+      Alert.alert('오류', errorMessage);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
